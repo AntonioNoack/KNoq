@@ -1,0 +1,12 @@
+<component name="libraryTable">
+  <library name="VideoStudio">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/Documents/IdeaProjects/VideoStudio/out/artifacts/Universal/VideoStudio.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="file://$USER_HOME$/Documents/IdeaProjects/VideoStudio/src" />
+      <root url="file://$USER_HOME$/Documents/IdeaProjects/VideoStudio/src" />
+    </SOURCES>
+  </library>
+</component>
