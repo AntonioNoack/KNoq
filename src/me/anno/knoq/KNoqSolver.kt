@@ -1,12 +1,19 @@
 package me.anno.knoq
 
 import me.anno.Engine
+import me.anno.utils.strings.StringHelper.levenshtein
 import java.util.*
 
 fun findIsEqual(rules: List<Rule>, input: String, output: String, maxTries: Int) =
     findIsEqual(rules, KNoqLang.parse(input), KNoqLang.parse(output), maxTries)
 
 fun findIsEqual(rules: List<Rule>, input: Expr, output: Expr, maxTries: Int): List<Expr>? {
+
+    class NewExpr(val value: Expr, val cost: Int, val depth: Int) {
+        operator fun component1() = value
+        operator fun component2() = cost
+        operator fun component3() = depth
+    }
 
     fun Expr.length(): Int {
         return when (this) {
@@ -18,63 +25,54 @@ fun findIsEqual(rules: List<Rule>, input: Expr, output: Expr, maxTries: Int): Li
 
     val added = HashSet<Expr>()
     val map = HashMap<Expr, Expr>()
-    val todo = PriorityQueue<Pair<Expr, Int>> { a, b ->
-        val c = a.second.compareTo(b.second)
-        if (c == 0) a.first.toString().compareTo(b.first.toString()) else c
+    val todo = PriorityQueue<NewExpr> { a, b ->
+        val c = a.cost.compareTo(b.cost)
+        if (c == 0) a.value.toString().compareTo(b.value.toString()) else c
     }
 
-    todo.add(input to 0)
+    todo.add(NewExpr(input, 0, 0))
     added.add(input)
 
     var maxCost = 10
     var lastTime = Engine.nanoTime
-    val slow = false
 
-    fun checkTerm(term: Expr, newTerm: Expr, cost: Int, selfCost: Int, i: Int): List<Expr>? {
-        if (newTerm == output) {
-            println("found path after ${added.size} entries")
-            // found path :)
-            val answer = ArrayList<Expr>()
-            answer.add(newTerm)
-            var path = term
-            while (true) {
-                answer.add(path)
-                path = map[path] ?: break
-            }
-            answer.reverse()
-            return answer
-        }
-        if (added.add(newTerm)) {
-            map[newTerm] = term
-            todo.add(newTerm to (cost - selfCost + newTerm.length() + 1 + 5 * i))
-        }
-        return null
-    }
+    val outputStr = output.toString()
 
     search@ while (todo.isNotEmpty()) {
-        val (term, cost) = todo.poll()
-        val selfCost = term.length()
+        val (term, cost, depth) = todo.poll()
         if (cost >= 2 * maxCost || (Engine.nanoTime > 1e9 + lastTime)) {
             maxCost = cost
             lastTime = Engine.nanoTime
             println("checking cost $cost, ${added.size} checked, $term")
         }
         for (rule in rules) {
-            if (slow) {// O(n²), so potentially slow with long formulas and generic rules
-                var i = 0
-                while (true) {
-                    val newTerm = rule.applyNth(term, i)
-                    if (newTerm == term) break // nothing changed -> end of rules
-                    val answer = checkTerm(term, newTerm, cost, selfCost, i)
-                    if (answer != null) return answer
-                    i++
+            val all = rule.applyAll2(term)
+            val numRuleMatches = all.size
+            for (i in all.indices) {
+                val newTerm = all[i]
+                if (newTerm == output) {
+                    println("found path after ${added.size} entries, cost $cost")
+                    // found path :)
+                    val answer = ArrayList<Expr>()
+                    answer.add(newTerm)
+                    var path = term
+                    while (true) {
+                        answer.add(path)
+                        path = map[path] ?: break
+                    }
+                    answer.reverse()
+                    return answer
                 }
-            } else {// O(n)
-                val all = rule.applyAll2(term)
-                for (i in all.indices) {
-                    val newTerm = all[i]
-                    val answer = checkTerm(term, newTerm, cost, selfCost, i)
-                    if (answer != null) return answer
+                if (added.add(newTerm)) {
+                    map[newTerm] = term
+                    val newCost = depth + // ancestry cost
+                            newTerm.length() + // cost for length
+                            1 + // base cost
+                            numRuleMatches + // rules that can be applied everywhere should be less desirable // 731,502 -> 601,438
+                            // cost for having a different structure from the target
+                            // 13615,1058 -> 1832,1218 (so yes, helps sometimes)
+                            newTerm.toString().levenshtein(outputStr, ignoreCase = false)
+                    todo.add(NewExpr(newTerm, newCost, depth + 1))
                 }
             }
             if (added.size > maxTries) {
