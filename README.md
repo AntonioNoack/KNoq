@@ -50,7 +50,7 @@ found path after 601 entries, cost 32
 (13) (a^2+(2*a)*b)+b^2
 ```
 
-## Example: 4=4*1 without a=(a+1)
+## Example: 4=4\*1 without a\*1=a
 ```
 checking cost 20, 48 checked, s(1+1)+1
 found path after 438 entries, cost 18
